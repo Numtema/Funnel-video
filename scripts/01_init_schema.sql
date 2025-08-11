@@ -108,3 +108,30 @@ ON CONFLICT DO NOTHING;
 INSERT INTO quiz (user_id, title, description, config, status) VALUES
 ('00000000-0000-0000-0000-000000000000', 'Quiz de Test', 'Un quiz de démonstration', '{"questions": [{"type": "multiple", "question": "Question test?"}]}', 'active')
 ON CONFLICT DO NOTHING;
+
+-- RPC pour incrémenter les conversions d'un funnel
+CREATE OR REPLACE FUNCTION increment_funnel_conversions(funnel_id uuid)
+RETURNS void AS $$
+BEGIN
+    UPDATE funnels SET conversions = conversions + 1 WHERE id = funnel_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RPC pour incrémenter les complétions d'un quiz
+CREATE OR REPLACE FUNCTION increment_quiz_completions(quiz_id uuid)
+RETURNS void AS $$
+BEGIN
+    UPDATE quiz SET completions = completions + 1 WHERE id = quiz_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- RPC générique pour exécuter des requêtes SQL
+CREATE OR REPLACE FUNCTION execute_sql(query_text text, query_params jsonb DEFAULT '[]'::jsonb)
+RETURNS jsonb AS $$
+DECLARE
+    result jsonb;
+BEGIN
+    EXECUTE format('SELECT jsonb_agg(t) FROM (%s) t', query_text) INTO result;
+    RETURN COALESCE(result, '[]'::jsonb);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

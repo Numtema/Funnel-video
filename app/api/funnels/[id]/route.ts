@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import sql from "@/lib/db"
+import { supabaseAdmin } from "@/lib/db"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -13,10 +13,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const [funnel] = await sql`
-      SELECT * FROM funnels 
-      WHERE id = ${params.id} AND user_id = ${user.id}
-    `
+    const { data: funnel, error } = await supabaseAdmin
+      .from("funnels")
+      .select("*")
+      .eq("id", params.id)
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
 
     if (!funnel) {
       return NextResponse.json({ error: "Funnel not found" }, { status: 404 })
@@ -43,13 +49,23 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json()
     const { title, description, config, status, ai_insights } = body
 
-    const [funnel] = await sql`
-      UPDATE funnels 
-      SET title = ${title}, description = ${description}, config = ${JSON.stringify(config)}, 
-          status = ${status}, ai_insights = ${JSON.stringify(ai_insights || {})}
-      WHERE id = ${params.id} AND user_id = ${user.id}
-      RETURNING *
-    `
+    const { data: funnel, error } = await supabaseAdmin
+      .from("funnels")
+      .update({
+        title,
+        description,
+        config,
+        status,
+        ai_insights: ai_insights || {},
+      })
+      .eq("id", params.id)
+      .eq("user_id", user.id)
+      .select()
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
 
     if (!funnel) {
       return NextResponse.json({ error: "Funnel not found" }, { status: 404 })
@@ -73,11 +89,17 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const [funnel] = await sql`
-      DELETE FROM funnels 
-      WHERE id = ${params.id} AND user_id = ${user.id}
-      RETURNING id
-    `
+    const { data: funnel, error } = await supabaseAdmin
+      .from("funnels")
+      .delete()
+      .eq("id", params.id)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle()
+
+    if (error) {
+      throw error
+    }
 
     if (!funnel) {
       return NextResponse.json({ error: "Funnel not found" }, { status: 404 })
